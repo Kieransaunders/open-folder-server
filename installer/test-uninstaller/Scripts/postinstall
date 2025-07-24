@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Post-install script for Open Folder Server Uninstaller
+# This actually performs the uninstall
+
+set -e  # Exit on any error
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log_success() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✅ $1"
+}
+
+log_warning() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  $1"
+}
+
+# Configuration
+USER_HOME="$HOME"
+INSTALL_DIR="$USER_HOME/Applications/OpenFolderServer"
+LAUNCH_AGENT_DIR="$USER_HOME/Library/LaunchAgents"
+PLIST_FILE="com.folderopener.plist"
+SERVICE_NAME="com.folderopener"
+
+log "🗑️  Starting Open Folder Server uninstall..."
+
+# Stop and unload the service
+if launchctl list | grep -q "$SERVICE_NAME"; then
+    log "Stopping service..."
+    launchctl unload "$LAUNCH_AGENT_DIR/$PLIST_FILE" 2>/dev/null || true
+    log_success "Service stopped"
+else
+    log_warning "Service was not running"
+fi
+
+# Remove launch agent plist file
+if [ -f "$LAUNCH_AGENT_DIR/$PLIST_FILE" ]; then
+    log "Removing launch agent..."
+    rm "$LAUNCH_AGENT_DIR/$PLIST_FILE"
+    log_success "Launch agent removed"
+else
+    log_warning "Launch agent plist file not found"
+fi
+
+# Remove application directory
+if [ -d "$INSTALL_DIR" ]; then
+    log "Removing application files..."
+    rm -rf "$INSTALL_DIR"
+    log_success "Application files removed"
+else
+    log_warning "Installation directory not found"
+fi
+
+# Check if port 3000 is still in use
+if lsof -i :3000 >/dev/null 2>&1; then
+    log_warning "Port 3000 is still in use by another process"
+    log_warning "You may need to manually stop any remaining processes"
+fi
+
+log_success "Open Folder Server has been completely removed!"
+log "The service will no longer start automatically on login."
+log "All application files, configuration, and logs have been deleted."
+
+exit 0

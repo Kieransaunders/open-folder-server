@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<pkg-info overwrite-permissions="true" relocatable="false" identifier="com.folderopener.uninstaller" postinstall-action="none" version="1.0.0" format-version="2" generator-version="InstallCmds-860 (24F74)" auth="root">
+    <bundle-version/>
+    <upgrade-bundle/>
+    <update-bundle/>
+    <atomic-update-bundle/>
+    <strict-identifier/>
+    <relocate/>
+    <scripts>
+        <preinstall file="./preinstall" timeout="600"/>
+        <postinstall file="./postinstall" timeout="600"/>
+    </scripts>
+</pkg-info>

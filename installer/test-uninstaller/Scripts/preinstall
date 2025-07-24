@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Pre-uninstall script for Open Folder Server
+# This script provides confirmation before uninstalling
+
+USER_HOME="$HOME"
+INSTALL_DIR="$USER_HOME/Applications/OpenFolderServer"
+LAUNCH_AGENT_DIR="$USER_HOME/Library/LaunchAgents"
+PLIST_FILE="com.folderopener.plist"
+SERVICE_NAME="com.folderopener"
+
+echo "🗑️  Open Folder Server Uninstaller"
+echo ""
+echo "This will completely remove Open Folder Server from your system:"
+echo "  • Stop the background service"
+echo "  • Remove launch agent (no auto-start on login)"
+echo "  • Delete application files: $INSTALL_DIR"
+echo "  • Remove configuration and logs"
+echo ""
+
+# Check if actually installed
+if [ ! -d "$INSTALL_DIR" ] && [ ! -f "$LAUNCH_AGENT_DIR/$PLIST_FILE" ]; then
+    echo "⚠️  Open Folder Server does not appear to be installed."
+    echo ""
+    echo "Nothing to uninstall. Cancelling."
+    exit 1
+fi
+
+echo "✅ Ready to uninstall Open Folder Server"
+
+exit 0

@@ -14,9 +14,18 @@ A macOS background service that enables web applications to open local Dropbox f
 ## 📦 Installation
 
 ### For End Users (Recommended)
+Choose your preferred installer:
+
+**Professional Installer (with welcome screen):**
+1. Download `OpenFolderServer-1.0.0-installer.pkg`
+2. Double-click to install
+3. Follow the installation wizard with welcome screen
+4. Service starts automatically
+
+**Simple Installer:**
 1. Download `OpenFolderServer-1.0.0.pkg`
 2. Double-click to install
-3. Follow the installation wizard
+3. Follow the basic installation wizard
 4. Service starts automatically
 
 ### For Developers
@@ -25,8 +34,14 @@ A macOS background service that enables web applications to open local Dropbox f
 cd installer
 ./install.sh
 
-# Build installer package
+# Build basic installer package
 ./build-pkg.sh
+
+# Build professional installer with welcome screen
+./build-distribution.sh
+
+# Build uninstaller package
+./build-uninstaller-pkg.sh
 ```
 
 ## 🔧 Usage
@@ -55,9 +70,43 @@ curl "http://localhost:3000/open?path=Documents/Contracts/2024"
 GET http://localhost:3000/health
 ```
 
+#### Configure Root Directory Browser
+```
+GET http://localhost:3000/browse-root
+```
+
+Opens a macOS folder picker to let users select their preferred root directory (Dropbox, iCloud, etc.) for fallback when folders are not found.
+
 #### Legacy Config Mode
 ```
 GET http://localhost:3000/open?folder=<folder_key>
+```
+
+### Smart Fallback System
+
+When a requested folder doesn't exist, the server automatically:
+
+1. **Checks if folder exists** - Only opens if the exact path is found
+2. **Falls back to root directories** in this order:
+   - User-configured root directories (via `/browse-root`)
+   - Dropbox root directory
+   - iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs`)
+   - User home directory (`~`)
+   - Desktop (`~/Desktop`)
+   - Documents (`~/Documents`)
+3. **Provides detailed feedback** - Returns JSON with both requested and opened paths
+
+**Example fallback response:**
+```json
+{
+  "success": true,
+  "message": "Folder not found. Opened Dropbox Root instead.",
+  "requested": "NonExistentFolder",
+  "requestedPath": "/Users/user/Dropbox/NonExistentFolder",
+  "opened": "Dropbox Root",
+  "openedPath": "/Users/user/Dropbox",
+  "fallback": true
+}
 ```
 
 ### Web App Integration
@@ -98,9 +147,11 @@ node server.js
 ├── start.command         # Launch script
 ├── com.folderopener.plist # macOS service config
 ├── installer/            # Installation tools
-│   ├── build-pkg.sh      # Build .pkg installer
+│   ├── build-pkg.sh      # Build basic .pkg installer
+│   ├── build-distribution.sh # Build professional installer
+│   ├── build-uninstaller-pkg.sh # Build uninstaller
 │   ├── install.sh        # Manual installer
-│   └── uninstall.sh      # Uninstaller
+│   └── uninstall.sh      # Manual uninstaller
 ├── plan.md              # Project planning
 └── todo.md              # Task tracking
 ```
@@ -131,6 +182,34 @@ Optional folder mappings in `config.json`:
 
 ## 🔧 Troubleshooting
 
+### Installer Issues (Fixed in v1.0.0)
+
+#### macOS Gatekeeper Security Block
+**Problem**: `"rejected source=no usable signature"` or installer blocked by macOS security
+**Solution**: Installer packages are now properly code-signed with Developer ID Installer certificate
+
+**For unsigned packages (development)**:
+```bash
+# Method 1: Right-click installer and select "Open"
+# Method 2: Bypass Gatekeeper temporarily
+sudo spctl --add --label "OpenFolderServer" path/to/package.pkg
+```
+
+#### Hardcoded Username Installation
+**Problem**: Package only installed for specific user who built it
+**Solution**: Installer now uses temporary directory approach with dynamic user paths
+
+#### Node.js Path Detection Issues
+**Problem**: Installer couldn't find Node.js in various installation locations
+**Solution**: Scripts now check multiple common Node.js locations:
+- `/usr/local/bin/node` (Homebrew Intel)
+- `/opt/homebrew/bin/node` (Homebrew Apple Silicon)
+- `/usr/bin/node` (System installation)
+
+#### npm PATH Environment Issues
+**Problem**: npm couldn't find Node.js during package installation
+**Solution**: Installer now sets proper PATH environment including Node.js directory
+
 ### Service Not Starting
 ```bash
 # Check service status
@@ -145,24 +224,64 @@ cat ~/Applications/OpenFolderServer/logs/server.log
 2. Check path spelling and encoding
 3. Review server logs for errors
 
-### Uninstall
+## 🗑️ Uninstallation
+
+### Option 1: PKG Uninstaller (Recommended)
+1. Download `OpenFolderServer-Uninstaller-1.0.0.pkg`
+2. Double-click to run
+3. Follow the uninstaller wizard
+4. Service completely removed
+
+### Option 2: Manual Uninstall
 ```bash
-./installer/uninstall.sh
+cd installer
+./uninstall.sh
+```
+
+### Option 3: Quick Manual Uninstall
+```bash
+launchctl unload ~/Library/LaunchAgents/com.folderopener.plist 2>/dev/null || true && rm -f ~/Library/LaunchAgents/com.folderopener.plist && rm -rf ~/Applications/OpenFolderServer && echo "✅ Uninstalled!"
 ```
 
 ## 🏗️ Build Process
 
-### Create Installer
+### Create Installers
 ```bash
 cd installer
+
+# Build basic installer
 ./build-pkg.sh
+
+# Build professional installer with welcome screen
+./build-distribution.sh
+
+# Build uninstaller
+./build-uninstaller-pkg.sh
 ```
 
-### Manual Install
+### Manual Install/Uninstall
 ```bash
 cd installer
+
+# Install
 ./install.sh
+
+# Uninstall
+./uninstall.sh
 ```
+
+## ⚠️ Disclaimer
+
+**USE AT YOUR OWN RISK**: This software is provided "as is" without warranty of any kind, express or implied. The authors and contributors shall not be liable for any damages arising from the use of this software.
+
+**Security Notice**: This application creates a local HTTP server that can open folders on your system. While it includes security measures (localhost-only binding, path validation), users should understand the security implications before installation.
+
+**System Access**: The application requires permissions to:
+- Run background processes via macOS launchd
+- Access and open folders in your file system
+- Create network connections on localhost port 3000
+
+By installing and using this software, you acknowledge these risks and agree to use it responsibly.
 
 ## 📄 License
 

@@ -69,6 +69,7 @@ npm install --production
 
 # Update plist file with correct paths
 print_status "Configuring launch agent..."
+NODE_PATH=$(command -v node || echo "/usr/bin/node")
 cat > "$INSTALL_DIR/$PLIST_FILE" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -79,7 +80,8 @@ cat > "$INSTALL_DIR/$PLIST_FILE" << EOF
     
     <key>ProgramArguments</key>
     <array>
-        <string>$INSTALL_DIR/start.command</string>
+        <string>$NODE_PATH</string>
+        <string>$INSTALL_DIR/server.js</string>
     </array>
     
     <key>WorkingDirectory</key>
@@ -100,7 +102,7 @@ cat > "$INSTALL_DIR/$PLIST_FILE" << EOF
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/usr/local/bin:/usr/bin:/bin</string>
+        <string>$(dirname "$NODE_PATH"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
 </dict>
 </plist>

@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Pre-installation script for Open Folder Server
+
+USER_HOME="$HOME"
+LAUNCH_AGENT_DIR="$USER_HOME/Library/LaunchAgents"
+PLIST_FILE="com.folderopener.plist"
+SERVICE_NAME="com.folderopener"
+
+echo "🔧 Preparing for installation..."
+
+# Check if Node.js is installed
+if ! command -v node &> /dev/null; then
+    echo ""
+    echo "❌ ERROR: Node.js is not installed!"
+    echo ""
+    echo "Please install Node.js before running this installer:"
+    echo "1. Visit https://nodejs.org/"
+    echo "2. Download and install the LTS version"
+    echo "3. Restart your Terminal or computer"
+    echo "4. Run this installer again"
+    echo ""
+    exit 1
+fi
+
+echo "✅ Node.js found: $(node --version)"
+
+# Check if npm is available
+if ! command -v npm &> /dev/null; then
+    echo "❌ ERROR: npm is not available!"
+    echo "Please reinstall Node.js from https://nodejs.org/"
+    exit 1
+fi
+
+echo "✅ npm found: $(npm --version)"
+
+# Stop existing service if running
+if launchctl list | grep -q "$SERVICE_NAME"; then
+    echo "Stopping existing service..."
+    launchctl unload "$LAUNCH_AGENT_DIR/$PLIST_FILE" 2>/dev/null || true
+fi
+
+# Remove existing plist file
+if [ -f "$LAUNCH_AGENT_DIR/$PLIST_FILE" ]; then
+    rm "$LAUNCH_AGENT_DIR/$PLIST_FILE"
+fi
+
+echo "✅ Ready for installation"
+
+exit 0

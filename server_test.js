@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3001;
 
 // Load configuration
 let config = {};
@@ -22,77 +22,6 @@ try {
 function log(message) {
   const timestamp = new Date().toISOString();
   console.log(`[${timestamp}] ${message}`);
-}
-
-// Helper function to get descriptive name for a directory path
-function getDescriptiveName(dirPath) {
-  const homeDir = process.env.HOME || require('os').homedir();
-  
-  // Common directory mappings
-  const commonNames = {
-    [path.join(homeDir, 'Library/CloudStorage/Dropbox')]: 'Dropbox',
-    [path.join(homeDir, 'Dropbox')]: 'Dropbox (Classic)',
-    [path.join(homeDir, 'Library/CloudStorage/Dropbox-Personal')]: 'Dropbox Personal',
-    [path.join(homeDir, 'Library/CloudStorage/Dropbox-Business')]: 'Dropbox Business',
-    [path.join(homeDir, 'Library/Mobile Documents/com~apple~CloudDocs')]: 'iCloud Drive',
-    [homeDir]: 'Home Folder',
-    [path.join(homeDir, 'Desktop')]: 'Desktop',
-    [path.join(homeDir, 'Documents')]: 'Documents'
-  };
-  
-  // Check for exact matches first
-  if (commonNames[dirPath]) {
-    return commonNames[dirPath];
-  }
-  
-  // For other paths, try to create a descriptive name
-  if (dirPath.includes('CloudStorage/Dropbox')) {
-    const parts = dirPath.split('/');
-    const dropboxPart = parts.find(part => part.startsWith('Dropbox'));
-    return dropboxPart ? dropboxPart.replace('Dropbox-', 'Dropbox ') : 'Dropbox Folder';
-  }
-  
-  if (dirPath.includes('iCloud') || dirPath.includes('CloudDocs')) {
-    return 'iCloud Drive';
-  }
-  
-  // Fallback: use the last directory name
-  const lastDir = path.basename(dirPath);
-  return lastDir.charAt(0).toUpperCase() + lastDir.slice(1);
-}
-
-// Helper function to return HTML with auto-close functionality
-function sendAutoCloseResponse(res, data) {
-  const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Open Folder Server</title>
-    <meta charset="utf-8">
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; padding: 20px; text-align: center; background: #f5f5f5; }
-        .container { max-width: 500px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .success { color: #28a745; }
-        .fallback { color: #fd7e14; }
-        .error { color: #dc3545; }
-        .message { font-size: 18px; margin: 20px 0; }
-        .details { font-size: 14px; color: #666; margin: 10px 0; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>🗂️ Open Folder Server</h2>
-        <div class="message ${data.success ? (data.fallback ? 'fallback' : 'success') : 'error'}">
-            ${data.message}
-        </div>
-        ${data.requested ? `<div class="details">Requested: ${data.requested}</div>` : ''}
-        ${data.opened ? `<div class="details">Opened: ${data.opened}</div>` : ''}
-    </div>
-</body>
-</html>`;
-  
-  res.setHeader('Content-Type', 'text/html');
-  res.send(html);
 }
 
 // Route handler for opening folders
@@ -184,11 +113,9 @@ app.get('/open', (req, res) => {
       }
 
       log(`Successfully opened folder: ${folder || folderPath}`);
-      sendAutoCloseResponse(res, { 
+      res.json({ 
         success: true,
-        message: `✅ Opened folder: ${folder || folderPath}`,
-        requested: folder || folderPath,
-        opened: folder || folderPath,
+        message: `Opened folder: ${folder || folderPath}`,
         path: dropboxPath
       });
     });
@@ -201,9 +128,9 @@ app.get('/open', (req, res) => {
     
     // Add user-configured root directories first
     if (config.userRoots && config.userRoots.length > 0) {
-      config.userRoots.forEach((userRoot) => {
+      config.userRoots.forEach((userRoot, index) => {
         fallbackOptions.push({ 
-          name: getDescriptiveName(userRoot), 
+          name: `User Root ${index + 1}`, 
           path: userRoot 
         });
       });
@@ -211,11 +138,11 @@ app.get('/open', (req, res) => {
     
     // Add common root directories as additional fallbacks
     fallbackOptions.push(
-      { name: getDescriptiveName(dropboxBasePath), path: dropboxBasePath },
-      { name: getDescriptiveName(path.join(homeDir, 'Library/Mobile Documents/com~apple~CloudDocs')), path: path.join(homeDir, 'Library/Mobile Documents/com~apple~CloudDocs') },
-      { name: getDescriptiveName(homeDir), path: homeDir },
-      { name: getDescriptiveName(path.join(homeDir, 'Desktop')), path: path.join(homeDir, 'Desktop') },
-      { name: getDescriptiveName(path.join(homeDir, 'Documents')), path: path.join(homeDir, 'Documents') }
+      { name: 'Dropbox Root', path: dropboxBasePath },
+      { name: 'iCloud Drive', path: path.join(homeDir, 'Library/Mobile Documents/com~apple~CloudDocs') },
+      { name: 'User Home', path: homeDir },
+      { name: 'Desktop', path: path.join(homeDir, 'Desktop') },
+      { name: 'Documents', path: path.join(homeDir, 'Documents') }
     );
     
     // Find the first available fallback
@@ -247,7 +174,7 @@ app.get('/open', (req, res) => {
         }
 
         log(`Successfully opened fallback directory: ${fallbackName}`);
-        sendAutoCloseResponse(res, { 
+        res.json({ 
           success: true,
           message: `Folder not found. Opened ${fallbackName} instead.`,
           requested: folder || folderPath,
@@ -260,12 +187,11 @@ app.get('/open', (req, res) => {
     } else {
       // No fallback directories found
       log(`No fallback directories available`);
-      sendAutoCloseResponse(res, { 
-        success: false,
-        message: 'Folder not found and no fallback directories available',
+      return res.status(404).json({ 
+        error: 'Folder not found and no fallback directories available',
         requested: folder || folderPath,
         requestedPath: dropboxPath,
-        error: true
+        hint: 'Check if the folder path is correct and if Dropbox/iCloud is properly set up'
       });
     }
   }
@@ -275,10 +201,13 @@ app.get('/open', (req, res) => {
 app.get('/browse-root', (req, res) => {
   log('Opening directory browser for root selection');
   
-  // Use AppleScript to show a folder picker dialog directly via Finder
+  // Use AppleScript to show a folder picker dialog
   const appleScript = `
-    set chosenFolder to choose folder with prompt "Select your preferred root directory (Dropbox, iCloud, etc.)"
-    return POSIX path of chosenFolder
+    tell application "Finder"
+      activate
+      set chosenFolder to choose folder with prompt "Select your preferred root directory (Dropbox, iCloud, etc.)"
+      return POSIX path of chosenFolder
+    end tell
   `;
   
   exec(`osascript -e '${appleScript}'`, (error, stdout, stderr) => {
@@ -303,7 +232,6 @@ app.get('/browse-root', (req, res) => {
       config.userRoots.unshift(selectedPath); // Add to front
       
       // Save updated config
-      const configPath = path.join(__dirname, 'config.json');
       fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
       log(`Saved new root directory to config: ${selectedPath}`);
     }
@@ -319,12 +247,10 @@ app.get('/browse-root', (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  // Filter out userRoots from folder keys
-  const folderKeys = Object.keys(config).filter(key => key !== 'userRoots');
   res.json({ 
     status: 'running',
     port: PORT,
-    folders: folderKeys,
+    folders: Object.keys(config),
     userRoots: config.userRoots || []
   });
 });

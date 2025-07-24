@@ -1,0 +1,132 @@
+#!/bin/bash
+
+# Post-installation script for Open Folder Server
+# This script runs after the package payload is installed
+
+set -e  # Exit on any error
+
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$INSTALL_DIR/logs/install.log"
+}
+
+log_error() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] ERROR: $1" | tee -a "$INSTALL_DIR/logs/install.log" >&2
+}
+
+log_success() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] SUCCESS: $1" | tee -a "$INSTALL_DIR/logs/install.log"
+}
+
+# Configuration
+USER_HOME="$HOME"
+INSTALL_DIR="$USER_HOME/Applications/OpenFolderServer"
+LAUNCH_AGENT_DIR="$USER_HOME/Library/LaunchAgents"
+PLIST_FILE="com.folderopener.plist"
+SERVICE_NAME="com.folderopener"
+
+log "🚀 Starting Open Folder Server post-installation setup..."
+
+# Create logs directory if it doesn't exist
+mkdir -p "$INSTALL_DIR/logs"
+
+# Verify critical files exist
+log "Verifying installation files..."
+if [ ! -f "$INSTALL_DIR/server.js" ]; then
+    log_error "server.js is missing from $INSTALL_DIR"
+    exit 1
+fi
+
+if [ ! -f "$INSTALL_DIR/package.json" ]; then
+    log_error "package.json is missing from $INSTALL_DIR"
+    exit 1
+fi
+
+if [ ! -f "$INSTALL_DIR/config.json" ]; then
+    log_error "config.json is missing from $INSTALL_DIR"
+    exit 1
+fi
+
+if [ ! -f "$INSTALL_DIR/start.command" ]; then
+    log_error "start.command is missing from $INSTALL_DIR"
+    exit 1
+fi
+
+log_success "All required files are present"
+
+# Check if Node.js is installed
+log "Checking for Node.js..."
+if ! command -v node &> /dev/null; then
+    log_error "Node.js is not installed!"
+    log_error "Please install Node.js from https://nodejs.org/ and run the installer again"
+    exit 1
+fi
+
+NODE_VERSION=$(node --version)
+log_success "Node.js found: $NODE_VERSION"
+
+# Install npm dependencies
+log "Installing npm dependencies..."
+cd "$INSTALL_DIR"
+if ! npm install --omit=dev --silent; then
+    log_error "Failed to install npm dependencies"
+    exit 1
+fi
+log_success "npm dependencies installed successfully"
+
+# Make start.command executable
+log "Setting file permissions..."
+chmod +x "$INSTALL_DIR/start.command"
+log_success "File permissions set"
+
+# Create launch agents directory if it doesn't exist
+log "Creating launch agents directory..."
+mkdir -p "$LAUNCH_AGENT_DIR"
+log_success "Launch agents directory ready"
+
+# Update plist file with correct user home path and node path
+log "Configuring launch agent..."
+NODE_PATH=$(command -v node || echo "/usr/bin/node")
+sed -e "s|USER_HOME|$USER_HOME|g" \
+    -e "s|/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin|$(dirname "$NODE_PATH"):/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin|g" \
+    "$INSTALL_DIR/$PLIST_FILE" > "$LAUNCH_AGENT_DIR/$PLIST_FILE"
+log_success "Launch agent configured with node path: $NODE_PATH"
+
+# Stop existing service if running
+log "Stopping any existing service..."
+if launchctl list | grep -q "$SERVICE_NAME"; then
+    launchctl unload "$LAUNCH_AGENT_DIR/$PLIST_FILE" 2>/dev/null || true
+    log_success "Stopped existing service"
+else
+    log "No existing service found"
+fi
+
+# Load the service
+log "Starting service..."
+if launchctl load "$LAUNCH_AGENT_DIR/$PLIST_FILE"; then
+    log_success "Service loaded successfully"
+else
+    log_error "Failed to load service"
+    exit 1
+fi
+
+# Wait for service to start
+log "Waiting for service to start..."
+sleep 3
+
+# Test the service
+log "Testing service..."
+if curl -s -f "http://localhost:3000/health" > /dev/null; then
+    log_success "Service is running and responding"
+    log_success "Open Folder Server installation completed successfully!"
+    log "The service is now running and will start automatically on login."
+    log "Configuration: $INSTALL_DIR/config.json"
+    log "Logs: $INSTALL_DIR/logs/"
+    log "Test URL: http://localhost:3000/health"
+else
+    log_error "Service failed to start or is not responding"
+    log_error "Check logs at $INSTALL_DIR/logs/ for more details"
+    exit 1
+fi
+
+exit 0

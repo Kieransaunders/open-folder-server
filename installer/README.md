@@ -4,21 +4,35 @@ This directory contains the installation tools for the Open Folder Server macOS 
 
 ## Installation Options
 
-### Option 1: .pkg Installer (Recommended)
-**For end users who want a simple installation:**
+### Option 1: Professional .pkg Installer (Recommended)
+**For end users who want the best experience:**
 
-1. Run the build script to create the installer:
+1. Build the professional installer:
+   ```bash
+   ./build-distribution.sh
+   ```
+
+2. Share the generated `OpenFolderServer-1.0.0-installer.pkg` file
+
+3. Users get:
+   - Welcome screen with installation overview
+   - License agreement
+   - Professional installer interface
+   - Automatic service setup
+
+### Option 2: Simple .pkg Installer
+**For end users who want a basic installation:**
+
+1. Build the basic installer:
    ```bash
    ./build-pkg.sh
    ```
 
 2. Share the generated `OpenFolderServer-1.0.0.pkg` file
 
-3. Users can double-click the .pkg file and follow the installation wizard
+3. Users can double-click and follow the installation wizard
 
-4. The service will start automatically after installation
-
-### Option 2: Manual Shell Script
+### Option 3: Manual Shell Script
 **For developers or advanced users:**
 
 1. Run the installation script:
@@ -41,7 +55,25 @@ This directory contains the installation tools for the Open Folder Server macOS 
 
 ## Uninstallation
 
-To remove the service:
+### Option 1: .pkg Uninstaller (Recommended)
+**Professional uninstallation experience:**
+
+1. Build the uninstaller:
+   ```bash
+   ./build-uninstaller-pkg.sh
+   ```
+
+2. Share the generated `OpenFolderServer-Uninstaller-1.0.0.pkg` file
+
+3. Users can double-click to uninstall with:
+   - Pre-install validation (checks if actually installed)
+   - Confirmation screen showing what will be removed
+   - Complete cleanup of all files and services
+   - Professional installer interface
+
+### Option 2: Manual Shell Script
+**For developers or direct control:**
+
 ```bash
 ./uninstall.sh
 ```
@@ -54,10 +86,18 @@ This will:
 
 ## Files
 
-- `build-pkg.sh` - Creates macOS .pkg installer
+### Build Scripts
+- `build-distribution.sh` - Creates professional installer with welcome screen
+- `build-pkg.sh` - Creates basic macOS .pkg installer
+- `build-uninstaller-pkg.sh` - Creates professional .pkg uninstaller
+
+### Manual Scripts
 - `install.sh` - Manual installation script
-- `uninstall.sh` - Removal script
+- `uninstall.sh` - Manual removal script
+
+### Documentation
 - `README.md` - This documentation
+- `validate-installer.sh` - Installer validation tools
 
 ## Requirements
 
@@ -72,14 +112,28 @@ After installation, test the service:
 # Check service status
 curl http://localhost:3000/health
 
-# Test folder opening (configure folders in config.json first)
+# Test dynamic folder opening
+curl "http://localhost:3000/open?path=Documents"
+
+# Test legacy config-based folder opening
 curl "http://localhost:3000/open?folder=ProjectX"
 ```
 
 ## Distribution
 
-The `.pkg` installer is ready for distribution:
-- No additional dependencies needed
+### Complete Distribution Package
+For end users, distribute these files:
+
+**Installation:**
+- `OpenFolderServer-1.0.0-installer.pkg` (professional installer - recommended)
+- `OpenFolderServer-1.0.0.pkg` (basic installer - alternative)
+
+**Uninstallation:**
+- `OpenFolderServer-Uninstaller-1.0.0.pkg` (professional uninstaller)
+
+### Features
+- No additional dependencies needed (Node.js required)
 - Works with macOS Gatekeeper
-- Standard installation experience
-- Automatic service setup
+- Professional installation/uninstallation experience
+- Automatic service setup and cleanup
+- Pre-install validation and error handling

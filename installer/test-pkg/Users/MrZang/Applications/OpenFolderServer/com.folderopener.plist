@@ -29,8 +29,6 @@
     <dict>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>HOME</key>
-        <string>USER_HOME</string>
     </dict>
 </dict>
 </plist>
